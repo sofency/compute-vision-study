@@ -49,13 +49,6 @@ class cats_dogs(Dataset):
             torch.tensor([target]).float().to(device)
 
 
-data = cats_dogs(train_data_dir)
-image, label = data[200]
-# 期待数据 (height, width, 3)
-plt.imshow(image.permute(1, 2, 0).cpu())
-plt.show()
-
-
 def conv_layer(ni, no, kernel_size, stride=1):
     return nn.Sequential(
         nn.Conv2d(ni, no, kernel_size, stride),
@@ -102,11 +95,6 @@ def accuracy(x, y, model):
     return is_correct.cpu().numpy().tolist()
 
 
-model, loss_fn, optimizer = get_model()
-summary(model, torch.zeros(1, 3, 224, 224))
-train_dl, valid_dl = get_data()
-
-
 @torch.no_grad()
 def val_loss(x, y, model):
     prediction = model(x)
@@ -114,48 +102,59 @@ def val_loss(x, y, model):
     return val_loss.item()
 
 
-train_losses, train_accuracies = [], []
-val_losses, val_accuracies = [], []
-for epoch in range(5):
-    train_epoch_losses, train_epoch_accuracies = [], []
-    val_epoch_accuracies = []
+def train_get_loss_accuracies(model, train_dataloader, valid_dataloader):
+    train_losses, train_accuracies = [], []
+    val_losses, val_accuracies = [], []
+    for epoch in range(5):
+        train_epoch_losses, train_epoch_accuracies = [], []
+        val_epoch_accuracies = []
 
-    for ix, batch in enumerate(iter(train_dl)):
-        x, y = batch
-        batch_loss = train_batch(x, y, model, optimizer, loss_fn)
-        train_epoch_losses.append(batch_loss)
+        for ix, batch in enumerate(iter(train_dataloader)):
+            x, y = batch
+            batch_loss = train_batch(x, y, model, optimizer, loss_fn)
+            train_epoch_losses.append(batch_loss)
 
-    train_epoch_loss = np.mean(train_epoch_losses)
+        train_epoch_loss = np.mean(train_epoch_losses)
 
-    for ix, batch in enumerate(iter(train_dl)):
-        x, y = batch
-        is_correct = accuracy(x, y, model)
-        train_epoch_accuracies.extend(is_correct)
+        for ix, batch in enumerate(iter(train_dataloader)):
+            x, y = batch
+            is_correct = accuracy(x, y, model)
+            train_epoch_accuracies.extend(is_correct)
 
-    train_epoch_accuracy = np.mean(train_epoch_accuracies)
+        train_epoch_accuracy = np.mean(train_epoch_accuracies)
 
-    # 计算验证集准确率
-    for ix, batch in enumerate(iter(valid_dl)):
-        x, y = batch
-        valid_is_correct = accuracy(x, y, model)
-        # valid_is_correct追加到val_epoch_accuracies尾部
-        val_epoch_accuracies.extend(valid_is_correct)
+        # 计算验证集准确率
+        for ix, batch in enumerate(iter(valid_dataloader)):
+            x, y = batch
+            valid_is_correct = accuracy(x, y, model)
+            # valid_is_correct追加到val_epoch_accuracies尾部
+            val_epoch_accuracies.extend(valid_is_correct)
 
-    val_epoch_accuracy = np.mean(val_epoch_accuracies)
+        val_epoch_accuracy = np.mean(val_epoch_accuracies)
 
-    # 记录训练集验证集的误差和准确率
-    train_losses.append(train_epoch_loss)
-    train_accuracies.append(train_epoch_accuracy)
-    val_accuracies.append(val_epoch_accuracy)
+        # 记录训练集验证集的误差和准确率
+        train_losses.append(train_epoch_loss)
+        train_accuracies.append(train_epoch_accuracy)
+        val_accuracies.append(val_epoch_accuracy)
+    return train_losses, train_accuracies, val_accuracies
 
-epochs = np.arange(5) + 1
-plt.plot(epochs, train_accuracies, 'bo', label='Training Accuracy')
-plt.plot(epochs, val_accuracies, 'r', label='Valid Accuracy')
-plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
-plt.title("Training and validation accuracy \n with 4k data for train")
-plt.xlabel("Epochs")
-plt.ylabel("Accuracy")
-plt.gca().set_yticklabels(["{:.0f}%".format(x * 100) for x in plt.gca().get_yticks()])
-plt.legend()
-plt.grid("off")
-plt.show()
+
+def plot(train_accuracies, val_accuracies):
+    epochs = np.arange(5) + 1
+    plt.plot(epochs, train_accuracies, 'bo', label='Training Accuracy')
+    plt.plot(epochs, val_accuracies, 'r', label='Valid Accuracy')
+    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
+    plt.title("Training and validation accuracy \n with 4k data for train")
+    plt.xlabel("Epochs")
+    plt.ylabel("Accuracy")
+    plt.gca().set_yticklabels(["{:.0f}%".format(x * 100) for x in plt.gca().get_yticks()])
+    plt.legend()
+    plt.grid("off")
+    plt.show()
+
+
+model, loss_fn, optimizer = get_model()
+summary(model, torch.zeros(1, 3, 224, 224))
+train_dl, valid_dl = get_data()
+train_losses, train_accuracies, val_accuracies = train_get_loss_accuracies(model, train_dl, valid_dl)
+plot(train_accuracies, val_accuracies)
