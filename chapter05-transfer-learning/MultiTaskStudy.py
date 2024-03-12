@@ -217,6 +217,7 @@ def plot_image(n_epochs, val_gender_accuracies, val_age_accuracies):
     plt.show()
 
 
+# 根据value找key
 def find_key_by_value(dictionary, value):
     for key, val in dictionary.items():
         if val == value:
