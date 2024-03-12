@@ -26,10 +26,11 @@ test_data_dir = "../data/test_set/test_set"
 
 
 class cats_dogs(Dataset):
-    def __init__(self, folder):
+    def __init__(self, folder, normalize=None):
         # glob函数会返回一个列表，这个列表包含了所有匹配到的文件路径
         cats = glob(folder + '/cats/*.jpg')
         dogs = glob(folder + '/dogs/*.jpg')
+        self.normalize = normalize
         self.paths = cats + dogs
         shuffle(self.paths)
         # 以dog开头的记为1 否则为0
@@ -45,8 +46,12 @@ class cats_dogs(Dataset):
         im = (cv2.imread(f)[:, :, ::-1])
         im = cv2.resize(im, (224, 224))
         # permute(2,0,1) 就是把通道提到前面
-        return torch.tensor(im / 255).permute(2, 0, 1).to(device=device).float(), \
-            torch.tensor([target]).float().to(device)
+        im = torch.tensor(im / 255).permute(2, 0, 1)
+
+        if self.normalize:
+            im = self.normalize(im)
+
+        return im.to(device=device).float(), torch.tensor([target]).float().to(device)
 
 
 def conv_layer(ni, no, kernel_size, stride=1):
@@ -69,11 +74,11 @@ def get_model():
     return model, loss_fn, optimizer
 
 
-def get_data():
-    train = cats_dogs(train_data_dir)
+def get_data(normalize=None):
+    train = cats_dogs(train_data_dir, normalize)
     train_dl = DataLoader(train, batch_size=32, shuffle=True, drop_last=True)
 
-    valid = cats_dogs(test_data_dir)
+    valid = cats_dogs(test_data_dir, normalize)
     valid_dl = DataLoader(valid, batch_size=32, shuffle=True, drop_last=True)
     return train_dl, valid_dl
 
@@ -139,12 +144,12 @@ def train_get_loss_accuracies(model, train_dataloader, valid_dataloader):
     return train_losses, train_accuracies, val_accuracies
 
 
-def plot(train_accuracies, val_accuracies):
+def plot(train_accuracies, val_accuracies, info):
     epochs = np.arange(5) + 1
     plt.plot(epochs, train_accuracies, 'bo', label='Training Accuracy')
     plt.plot(epochs, val_accuracies, 'r', label='Valid Accuracy')
     plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
-    plt.title("Training and validation accuracy \n with 4k data for train")
+    plt.title("Training and validation accuracy \n with " + info + " for train")
     plt.xlabel("Epochs")
     plt.ylabel("Accuracy")
     plt.gca().set_yticklabels(["{:.0f}%".format(x * 100) for x in plt.gca().get_yticks()])
@@ -157,4 +162,4 @@ model, loss_fn, optimizer = get_model()
 summary(model, torch.zeros(1, 3, 224, 224))
 train_dl, valid_dl = get_data()
 train_losses, train_accuracies, val_accuracies = train_get_loss_accuracies(model, train_dl, valid_dl)
-plot(train_accuracies, val_accuracies)
+plot(train_accuracies, val_accuracies, "4k data")
