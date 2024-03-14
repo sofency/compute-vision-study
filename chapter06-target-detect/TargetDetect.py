@@ -14,6 +14,7 @@ from torchvision.ops import nms
 from torch.utils.data import TensorDataset, DataLoader
 import warnings
 from torchsummary import summary
+
 """
 目标检测R-CNN原理
 该模型需要的训练数据为 
@@ -384,11 +385,14 @@ def test_predictions(filename, show_output=True):
                                                        [poses, clss, probs, deltas, candidates, bbs]]
     if len(poses) == 0 and not show_output:
         return (0, 0, 224, 224), 'background', 0
+
+    anchor_x, anchor_y, anchor_X, anchor_Y = 0, 0, 0, 0
+    best_pred_pos = 0
     if len(poses) > 0:
-        best_pred = np.argmax(poses)
+        best_pred_pos = np.argmax(poses)
         best_conf = np.max(poses)
-        best_bb = bbs[best_pred]
-        x, y, X, Y = best_bb
+        best_bb = bbs[best_pred_pos]
+        anchor_x, anchor_y, anchor_X, anchor_Y = best_bb
     _, ax = plt.subplots(1, 2, figsize=(20, 10))
     # 展示原图像
     show(img, ax=ax[0])
@@ -399,11 +403,11 @@ def test_predictions(filename, show_output=True):
         ax[1].set_title('No objects')
         plt.show()
         return
-    ax[1].set_title(target2label[clss[best_pred]])
+    ax[1].set_title(target2label[clss[best_pred_pos]])
     show(img, bbs=bbs.tolist(), texts=[target2label[c] for c in clss.tolist()], ax=ax[1],
          title='predicted bounding box and class')
     plt.show()
-    return (x, y, X, Y), target2label[clss[best_pred]], best_conf
+    return (anchor_x, anchor_y, anchor_X, anchor_Y), target2label[clss[best_pred_pos]], best_conf
 
 
 print(test_predictions(test_ds[6][-1]))
